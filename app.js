@@ -149,7 +149,21 @@ function escapeHtml(s){
   return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 }
 
-function parseWorkbook(data){
+function arrayBufferToBase64(buf){
+  let binary="";
+  const bytes=new Uint8Array(buf);
+  for(let i=0;i<bytes.byteLength;i++) binary+=String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+function base64ToArrayBuffer(b64){
+  const binary=atob(b64);
+  const bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+function parseWorkbook(data, opts){
+  opts = opts || {};
   const wb=XLSX.read(data,{type:"array"});
   const ws=wb.Sheets[wb.SheetNames[0]];
   rows=XLSX.utils.sheet_to_json(ws,{defval:""});
@@ -160,16 +174,29 @@ function parseWorkbook(data){
   hideStatus();
   $("dataStatus").textContent=`Dieta caricata · ${rows.length} righe`;
   renderAll();
+  if(opts.persist){
+    try{ localStorage.setItem("dietaXlsxBase64", arrayBufferToBase64(data)); }
+    catch(e){ /* file troppo grande per localStorage: verrà richiesto di nuovo al prossimo avvio */ }
+  }
 }
 
 async function loadDefault(){
+  // 1) prova prima il file salvato localmente da un upload precedente
+  const cached = localStorage.getItem("dietaXlsxBase64");
+  if(cached){
+    try{
+      parseWorkbook(base64ToArrayBuffer(cached));
+      return;
+    }catch(e){ /* cache corrotta, continua con i tentativi successivi */ }
+  }
+  // 2) altrimenti prova dieta.xlsx nella stessa cartella (se l'hai messo nel repo)
   try{
     const res=await fetch("dieta.xlsx",{cache:"no-store"});
     if(!res.ok) throw new Error("File dieta.xlsx non trovato");
     parseWorkbook(await res.arrayBuffer());
   }catch(e){
     $("dataStatus").textContent="Nessun file dieta.xlsx";
-    showStatus("Metti il tuo file Excel nella stessa cartella dell'app e chiamalo “dieta.xlsx”, oppure usa il pulsante ↥ per caricarlo manualmente.");
+    showStatus("Carica il tuo file Excel col pulsante ↥ (verrà ricordato automaticamente la prossima volta).");
     renderAll();
   }
 }
@@ -181,7 +208,7 @@ $("nextDay").onclick=()=>{currentDate.setDate(currentDate.getDate()+1);renderDay
 $("uploadBtn").onclick=()=>$("fileInput").click();
 $("fileInput").onchange=async e=>{
   const f=e.target.files[0]; if(!f)return;
-  try{parseWorkbook(await f.arrayBuffer());}
+  try{parseWorkbook(await f.arrayBuffer(), {persist:true});}
   catch(err){showStatus("Errore nel file Excel: "+err.message);}
 };
 
