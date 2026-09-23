@@ -111,9 +111,15 @@ function renderWeek(){
   $("weekView").innerHTML=html;
 }
 
+function formatQty(n){
+  // Rounds to 2 decimals and drops trailing zeros (150 -> "150", 33.333 -> "33.33")
+  const r=Math.round(n*100)/100;
+  return String(r);
+}
+
 function renderShopping(){
   if(!rows.length){$("shoppingView").innerHTML=`<div class="empty">Carica il file Excel.</div>`;return;}
-  // Aggregates the foods currently selected. Items in alternative groups are included only when a choice exists.
+  // Aggregates the foods currently selected su tutta la settimana. Le alternative contano solo se scelte nell'app.
   const map=new Map();
   for(const r of rows){
     const opts=groupRows(r.Giorno,r.Pasto).filter(x=>String(x.Gruppo??"1")===String(r.Gruppo??"1"));
@@ -122,25 +128,39 @@ function renderShopping(){
       if(selected[key]!==rowId(r)) continue;
     }
     const k=norm(r.Alimento);
-    if(!map.has(k)) map.set(k,{name:r.Alimento,qty:[],unit:r.Unità||""});
-    const q=String(r.Quantità??"").trim();
-    if(q) map.get(k).qty.push(q);
+    const unit=String(r.Unità||"").trim();
+    if(!map.has(k)) map.set(k,{name:r.Alimento, byUnit:new Map(), occurrences:0});
+    const entry=map.get(k);
+    entry.occurrences++;
+    const qNum=parseFloat(String(r.Quantità??"").replace(",","."));
+    if(!entry.byUnit.has(unit)) entry.byUnit.set(unit,{sum:0,hasNumeric:false,raw:[]});
+    const u=entry.byUnit.get(unit);
+    if(!isNaN(qNum)){ u.sum+=qNum; u.hasNumeric=true; }
+    else if(String(r.Quantità??"").trim()){ u.raw.push(String(r.Quantità).trim()); }
   }
   const entries=[...map.values()].sort((a,b)=>a.name.localeCompare(b.name,"it"));
   $("shoppingView").innerHTML = `<div class="shopping-section">
-    <h3>🛒 Lista della spesa</h3>
-    <div class="note">La lista tiene conto delle alternative che hai selezionato nell'app.</div>
+    <h3>🛒 Lista della spesa — settimana intera</h3>
+    <div class="note">Quantità totali di ciò che ti serve durante la settimana (somma di tutti i pasti in cui compare). Tiene conto delle alternative che hai selezionato.</div>
     ${entries.map(e=>{
       const id="shop-"+norm(e.name).replace(/[^a-z0-9]+/g,"-");
       const checked=!!shoppingChecks[id];
-      return `<label class="shop-item"><input type="checkbox" data-shop="${id}" ${checked?"checked":""}>
-        <span>${escapeHtml(e.name)}${e.qty.length?` — ${escapeHtml(e.qty.join(" + "))} ${escapeHtml(e.unit)}`:""}</span></label>`;
+      const parts=[];
+      for(const [unit,u] of e.byUnit.entries()){
+        if(u.hasNumeric) parts.push(`${formatQty(u.sum)}${unit?" "+unit:""}`);
+        parts.push(...u.raw.map(x=>unit?`${x} ${unit}`:x));
+      }
+      const qtyText=parts.length?parts.join(" + "):"";
+      const timesText = e.occurrences>1 ? ` <span class="shop-times">(×${e.occurrences} nella settimana)</span>` : "";
+      return `<label class="shop-item ${checked?"is-checked":""}"><input type="checkbox" data-shop="${id}" ${checked?"checked":""}>
+        <span><strong>${escapeHtml(e.name)}</strong>${qtyText?` — ${escapeHtml(qtyText)}`:""}${timesText}</span></label>`;
     }).join("")}
   </div>`;
   $("shoppingView").querySelectorAll("[data-shop]").forEach(el=>{
     el.addEventListener("change",e=>{
       shoppingChecks[e.target.dataset.shop]=e.target.checked;
       localStorage.setItem("shoppingChecks",JSON.stringify(shoppingChecks));
+      el.closest(".shop-item").classList.toggle("is-checked",e.target.checked);
     });
   });
 }
@@ -175,14 +195,22 @@ function parseWorkbook(data, opts){
   $("dataStatus").textContent=`Dieta caricata · ${rows.length} righe`;
   renderAll();
   if(opts.persist){
-    try{ localStorage.setItem("dietaXlsxBase64", arrayBufferToBase64(data)); }
-    catch(e){ /* file troppo grande per localStorage: verrà richiesto di nuovo al prossimo avvio */ }
+    try{
+      localStorage.setItem("dietaXlsxBase64", arrayBufferToBase64(data));
+      const check = localStorage.getItem("dietaXlsxBase64");
+      if(!check) throw new Error("verifica fallita dopo il salvataggio");
+      console.log("[dieta] Excel salvato in memoria locale, "+data.byteLength+" byte");
+    }catch(e){
+      console.error("[dieta] impossibile salvare l'Excel in locale:", e);
+      showStatus("Attenzione: il file è stato caricato ma non è stato possibile salvarlo per la prossima volta ("+e.message+"). Dovrai ricaricarlo al prossimo avvio.");
+    }
   }
 }
 
 async function loadDefault(){
   // 1) prova prima il file salvato localmente da un upload precedente
   const cached = localStorage.getItem("dietaXlsxBase64");
+  console.log("[dieta] cache trovata all'avvio:", !!cached, cached ? `(${cached.length} caratteri)` : "");
   if(cached){
     try{
       parseWorkbook(base64ToArrayBuffer(cached));

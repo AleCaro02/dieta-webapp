@@ -39,6 +39,8 @@ main{max-width:760px;margin:0 auto;padding:16px}
 .shop-item{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
 .shop-item:last-child{border-bottom:0}
 .shop-item input{accent-color:var(--green)}
+.shop-item.is-checked span{opacity:.45;text-decoration:line-through}
+.shop-times{font-size:12px;color:var(--muted)}
 .empty{background:var(--card);border:1px dashed #cfd5cf;border-radius:18px;padding:25px;text-align:center;color:var(--muted)}
 .status{background:#fff7dc;border:1px solid #ead79d;border-radius:14px;padding:12px 14px;color:#665522;margin-bottom:12px;font-size:13px}
 .hidden{display:none!important}
