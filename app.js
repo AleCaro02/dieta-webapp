@@ -1,0 +1,201 @@
+const DAYS = ["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"];
+const MEALS = ["Colazione","Spuntino Matt.","Pranzo","Merenda","Cena"];
+
+let rows = [];
+let currentDate = new Date();
+let selected = JSON.parse(localStorage.getItem("dietSelections") || "{}");
+let shoppingChecks = JSON.parse(localStorage.getItem("shoppingChecks") || "{}");
+
+const $ = id => document.getElementById(id);
+const norm = s => String(s ?? "").trim().toLowerCase()
+  .normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+
+function dayKey(d){ return DAYS[d.getDay() === 0 ? 6 : d.getDay()-1]; }
+function dateText(d){ return d.toLocaleDateString("it-IT",{day:"numeric",month:"long",year:"numeric"}); }
+
+function showStatus(msg){
+  $("status").textContent = msg;
+  $("status").classList.remove("hidden");
+}
+function hideStatus(){ $("status").classList.add("hidden"); }
+
+function updateHeader(){
+  $("dayName").textContent = dayKey(currentDate);
+  $("dateLabel").textContent = dateText(currentDate);
+}
+
+function groupRows(day, meal){
+  return rows.filter(r => norm(r.Giorno)===norm(day) && norm(r.Pasto)===norm(meal));
+}
+
+function groupByNumber(items){
+  const map = new Map();
+  for(const r of items){
+    const g = String(r.Gruppo ?? "1").trim() || "1";
+    if(!map.has(g)) map.set(g,[]);
+    map.get(g).push(r);
+  }
+  return [...map.entries()].sort((a,b)=>{
+    const na=Number(a[0]), nb=Number(b[0]);
+    return (Number.isFinite(na)&&Number.isFinite(nb)) ? na-nb : a[0].localeCompare(b[0]);
+  });
+}
+
+function rowId(r){ return [r.Giorno,r.Pasto,r.Gruppo,r.Alimento,r.Quantità,r.Unità].map(x=>String(x??"")).join("|"); }
+
+function renderDay(){
+  updateHeader();
+  if(!rows.length){
+    $("dayView").innerHTML = `<div class="empty">Carica il tuo file Excel per visualizzare la dieta.</div>`;
+    return;
+  }
+  const day = dayKey(currentDate);
+  let html = "";
+  for(const meal of MEALS){
+    const items = groupRows(day,meal);
+    if(!items.length) continue;
+    const groups = groupByNumber(items);
+    html += `<article class="meal"><div class="meal-head"><div><div class="meal-title">${meal}</div></div></div>`;
+    for(const [g, opts] of groups){
+      const isChoice = opts.length > 1;
+      const key = `${day}|${meal}|${g}`;
+      const val = selected[key];
+      html += `<div class="group">
+        ${isChoice ? `<div class="group-label">Scegli una</div>` : ""}
+        ${opts.map((r,i)=>{
+          const id=rowId(r);
+          const checked = isChoice ? val===id : true;
+          return `<label class="choice">
+            ${isChoice ? `<input type="radio" name="${CSS.escape(key)}" data-key="${escapeHtml(key)}" value="${escapeHtml(id)}" ${checked?"checked":""}>` : `<input type="checkbox" checked disabled>`}
+            <span class="food">${escapeHtml(r.Alimento)}
+              ${r.Note ? `<span class="note">${escapeHtml(r.Note)}</span>`:""}
+            </span>
+            <span class="qty">${escapeHtml(r.Quantità)} ${escapeHtml(r.Unità||"")}</span>
+          </label>`;
+        }).join("")}
+      </div>`;
+    }
+    html += `</article>`;
+  }
+  $("dayView").innerHTML = html || `<div class="empty">Non risultano pasti per ${day}.</div>`;
+  $("dayView").querySelectorAll("input[type=radio]").forEach(el=>{
+    el.addEventListener("change", e=>{
+      selected[e.target.dataset.key]=e.target.value;
+      localStorage.setItem("dietSelections",JSON.stringify(selected));
+      renderShopping();
+    });
+  });
+}
+
+function renderWeek(){
+  if(!rows.length){$("weekView").innerHTML=`<div class="empty">Carica il file Excel.</div>`;return;}
+  let html="";
+  for(const day of DAYS){
+    const dayRows=rows.filter(r=>norm(r.Giorno)===norm(day));
+    if(!dayRows.length) continue;
+    html+=`<article class="day-card card"><h3>${day}</h3>`;
+    for(const meal of MEALS){
+      const items=groupRows(day,meal); if(!items.length) continue;
+      html+=`<div class="mini-meal"><strong>${meal}</strong>`;
+      for(const [g,opts] of groupByNumber(items)){
+        const choice=opts.length>1;
+        const key=`${day}|${meal}|${g}`;
+        const val=selected[key];
+        const chosen=choice ? opts.find(o=>rowId(o)===val) : opts[0];
+        html+=`<div class="mini-food">• ${escapeHtml(chosen?chosen.Alimento:opts.map(o=>o.Alimento).join(" / "))}${chosen&&chosen.Quantità?` — ${escapeHtml(chosen.Quantità)} ${escapeHtml(chosen.Unità||"")}`:""}${choice&&!chosen?" — scegli nell'app":" "}</div>`;
+      }
+      html+=`</div>`;
+    }
+    html+=`</article>`;
+  }
+  $("weekView").innerHTML=html;
+}
+
+function renderShopping(){
+  if(!rows.length){$("shoppingView").innerHTML=`<div class="empty">Carica il file Excel.</div>`;return;}
+  // Aggregates the foods currently selected. Items in alternative groups are included only when a choice exists.
+  const map=new Map();
+  for(const r of rows){
+    const opts=groupRows(r.Giorno,r.Pasto).filter(x=>String(x.Gruppo??"1")===String(r.Gruppo??"1"));
+    if(opts.length>1){
+      const key=`${r.Giorno}|${r.Pasto}|${r.Gruppo}`;
+      if(selected[key]!==rowId(r)) continue;
+    }
+    const k=norm(r.Alimento);
+    if(!map.has(k)) map.set(k,{name:r.Alimento,qty:[],unit:r.Unità||""});
+    const q=String(r.Quantità??"").trim();
+    if(q) map.get(k).qty.push(q);
+  }
+  const entries=[...map.values()].sort((a,b)=>a.name.localeCompare(b.name,"it"));
+  $("shoppingView").innerHTML = `<div class="shopping-section">
+    <h3>🛒 Lista della spesa</h3>
+    <div class="note">La lista tiene conto delle alternative che hai selezionato nell'app.</div>
+    ${entries.map(e=>{
+      const id="shop-"+norm(e.name).replace(/[^a-z0-9]+/g,"-");
+      const checked=!!shoppingChecks[id];
+      return `<label class="shop-item"><input type="checkbox" data-shop="${id}" ${checked?"checked":""}>
+        <span>${escapeHtml(e.name)}${e.qty.length?` — ${escapeHtml(e.qty.join(" + "))} ${escapeHtml(e.unit)}`:""}</span></label>`;
+    }).join("")}
+  </div>`;
+  $("shoppingView").querySelectorAll("[data-shop]").forEach(el=>{
+    el.addEventListener("change",e=>{
+      shoppingChecks[e.target.dataset.shop]=e.target.checked;
+      localStorage.setItem("shoppingChecks",JSON.stringify(shoppingChecks));
+    });
+  });
+}
+
+function escapeHtml(s){
+  return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+
+function parseWorkbook(data){
+  const wb=XLSX.read(data,{type:"array"});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  rows=XLSX.utils.sheet_to_json(ws,{defval:""});
+  const required=["Giorno","Pasto","Gruppo","Alimento","Quantità","Unità"];
+  const headers=Object.keys(rows[0]||{});
+  const missing=required.filter(x=>!headers.includes(x));
+  if(missing.length) throw new Error("Nel primo foglio mancano le colonne: "+missing.join(", "));
+  hideStatus();
+  $("dataStatus").textContent=`Dieta caricata · ${rows.length} righe`;
+  renderAll();
+}
+
+async function loadDefault(){
+  try{
+    const res=await fetch("dieta.xlsx",{cache:"no-store"});
+    if(!res.ok) throw new Error("File dieta.xlsx non trovato");
+    parseWorkbook(await res.arrayBuffer());
+  }catch(e){
+    $("dataStatus").textContent="Nessun file dieta.xlsx";
+    showStatus("Metti il tuo file Excel nella stessa cartella dell'app e chiamalo “dieta.xlsx”, oppure usa il pulsante ↥ per caricarlo manualmente.");
+    renderAll();
+  }
+}
+
+function renderAll(){ renderDay(); renderWeek(); renderShopping(); }
+
+$("prevDay").onclick=()=>{currentDate.setDate(currentDate.getDate()-1);renderDay();};
+$("nextDay").onclick=()=>{currentDate.setDate(currentDate.getDate()+1);renderDay();};
+$("uploadBtn").onclick=()=>$("fileInput").click();
+$("fileInput").onchange=async e=>{
+  const f=e.target.files[0]; if(!f)return;
+  try{parseWorkbook(await f.arrayBuffer());}
+  catch(err){showStatus("Errore nel file Excel: "+err.message);}
+};
+
+document.querySelectorAll(".tab").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    const v=btn.dataset.view;
+    $("dayView").classList.toggle("hidden",v!=="day");
+    $("weekView").classList.toggle("hidden",v!=="week");
+    $("shoppingView").classList.toggle("hidden",v!=="shopping");
+    if(v==="shopping") renderShopping();
+  };
+});
+
+updateHeader();
+loadDefault();

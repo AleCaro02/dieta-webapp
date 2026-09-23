@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#173f35">
+  <title>La mia dieta</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">PIANO ALIMENTARE</div>
+      <h1>La mia dieta</h1>
+    </div>
+    <button id="uploadBtn" class="icon-btn" title="Carica Excel" aria-label="Carica Excel">↥</button>
+    <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" hidden>
+  </header>
+
+  <main>
+    <section class="day-nav card">
+      <button id="prevDay" class="nav-btn" aria-label="Giorno precedente">‹</button>
+      <div class="day-center">
+        <div id="dayName" class="day-name">—</div>
+        <div id="dateLabel" class="date-label">—</div>
+      </div>
+      <button id="nextDay" class="nav-btn" aria-label="Giorno successivo">›</button>
+    </section>
+
+    <div class="tabs">
+      <button class="tab active" data-view="day">Oggi</button>
+      <button class="tab" data-view="week">Settimana</button>
+      <button class="tab" data-view="shopping">Spesa</button>
+    </div>
+
+    <section id="status" class="status hidden"></section>
+    <section id="dayView"></section>
+    <section id="weekView" class="hidden"></section>
+    <section id="shoppingView" class="hidden"></section>
+  </main>
+
+  <footer>
+    <span id="dataStatus">Caricamento dieta…</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

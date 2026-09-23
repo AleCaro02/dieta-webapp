@@ -1,0 +1,46 @@
+*{box-sizing:border-box}
+:root{--green:#173f35;--green2:#24594b;--cream:#f7f5ee;--card:#fff;--text:#202622;--muted:#737a76;--line:#e6e8e3;--accent:#d6ad58}
+body{margin:0;background:var(--cream);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.topbar{background:var(--green);color:white;padding:22px 18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.eyebrow{font-size:11px;letter-spacing:.14em;opacity:.72;margin-bottom:4px}
+h1{font-family:Georgia,serif;font-size:28px;margin:0;font-weight:600}
+.icon-btn,.nav-btn{border:0;background:rgba(255,255,255,.12);color:inherit;border-radius:14px;cursor:pointer}
+.icon-btn{width:44px;height:44px;font-size:23px}
+main{max-width:760px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 5px 20px rgba(23,63,53,.05)}
+.day-nav{display:flex;align-items:center;justify-content:space-between;padding:10px;margin-bottom:14px}
+.nav-btn{background:#eef2ee;color:var(--green);width:44px;height:44px;font-size:28px}
+.day-center{text-align:center}
+.day-name{font-size:20px;font-weight:750;text-transform:capitalize}
+.date-label{font-size:13px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;background:#e9ede9;border-radius:13px;padding:4px;margin-bottom:14px}
+.tab{flex:1;border:0;background:transparent;border-radius:10px;padding:10px 5px;font-weight:650;color:#68716c;cursor:pointer}
+.tab.active{background:white;color:var(--green);box-shadow:0 1px 5px rgba(0,0,0,.07)}
+.meal{background:var(--card);border:1px solid var(--line);border-radius:18px;margin:12px 0;overflow:hidden}
+.meal-head{padding:15px 16px;background:#fbfcfa;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.meal-title{font-weight:800;font-size:17px}
+.meal-note{font-size:12px;color:var(--muted);margin-top:3px}
+.group{padding:13px 16px;border-bottom:1px solid var(--line)}
+.group:last-child{border-bottom:0}
+.group-label{font-size:12px;font-weight:750;color:var(--green2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
+.choice{display:flex;gap:10px;align-items:flex-start;padding:8px 0;cursor:pointer}
+.choice input{margin-top:4px;accent-color:var(--green)}
+.food{flex:1;font-size:15px;line-height:1.35}
+.qty{font-weight:700;white-space:nowrap}
+.note{font-size:12px;color:var(--muted);margin-top:2px}
+.simple-row{display:flex;justify-content:space-between;gap:12px;padding:8px 0}
+.day-card{padding:15px;margin:10px 0}
+.day-card h3{margin:0 0 10px;font-size:17px}
+.mini-meal{margin-top:10px}
+.mini-meal strong{display:block;margin-bottom:4px}
+.mini-food{font-size:13px;color:#515a55;margin:3px 0}
+.shopping-section{background:var(--card);border:1px solid var(--line);border-radius:18px;margin:12px 0;padding:16px}
+.shopping-section h3{margin:0 0 10px}
+.shop-item{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.shop-item:last-child{border-bottom:0}
+.shop-item input{accent-color:var(--green)}
+.empty{background:var(--card);border:1px dashed #cfd5cf;border-radius:18px;padding:25px;text-align:center;color:var(--muted)}
+.status{background:#fff7dc;border:1px solid #ead79d;border-radius:14px;padding:12px 14px;color:#665522;margin-bottom:12px;font-size:13px}
+.hidden{display:none!important}
+footer{text-align:center;color:#8a918c;font-size:11px;padding:18px 10px 28px}
+@media (min-width:700px){main{padding-top:22px}.meal{margin:14px 0}}
